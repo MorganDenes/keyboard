@@ -26,94 +26,93 @@
 
 PCF8575 PCF(0x20, &Wire1);
 
-const int leftRowCount = 6;
-const int leftColCount = 5;
-byte leftCols[leftColCount] { 14, 15, 20, 21, 22 };
-byte leftRows[leftRowCount] { 6, 7, 8, 9, 10, 11 };
+const uint8_t rowCount = 6;
+const uint8_t colCount = 5;
 
-int conversionsLeft[leftColCount][leftRowCount] {
-  { 17, 18, -1, -1, 21, 20 },
-  { 11, 12, 16, 15, 14, 13 },
-  {  5,  6, 10,  9,  8,  7 },
-  { -1, -1,  4,  3,  2,  1 },
-  { 24, 19, 23, 22, -1, -1 }
+uint8_t leftColPins[colCount] { 14, 15, 20, 21, 22 };
+uint8_t leftRowPins[rowCount] { 6, 7, 8, 9, 10, 11 };
+uint8_t rightColPins[colCount] { 11, 12, 13, 14, 15 };
+uint8_t rightRowPins[rowCount] { 0, 1, 2, 3, 4, 5 };
+
+uint8_t conversionsLeft[colCount][rowCount] {
+  { 16, 17, 99, 99, 20, 19 },
+  { 10, 11, 15, 14, 13, 12 },
+  {  4,  5,  9,  8,  7,  6 },
+  { 99, 99,  3,  2,  1,  0 },
+  { 23, 18, 22, 21, 99, 99 }
 };
 
-const int rightRowCount = 6;
-const int rightColCount = 5;
-byte rightCols[rightColCount] { 11, 12, 13, 14, 15 };
-byte rightRows[rightRowCount] { 0, 1, 2, 3, 4, 5 };
-
-int conversionsRight[rightColCount][rightRowCount] {
-  { -1, -1,  3,  4,  5,  6 },
-  {  1,  2,  9, 10, 11, 12 },
-  { 14, 15, -1, -1, 23, 24 },
-  {  7,  8, 16, 17, 18, 19 },
-  { 13, 20, 21, 22, -1, -1 }
+uint8_t conversionsRight[colCount][rowCount] {
+  { 99, 99,  2,  3,  4,  5 },
+  {  0,  1,  8, 9, 10, 11 },
+  { 13, 14, 99, 99, 22, 23 },
+  {  6,  7, 15, 16, 17, 18 },
+  { 12, 19, 20, 21, 99, 99 }
 };
 
-int LayerOne[leftColCount * leftRowCount * 2] {
+int LayerOne[colCount * rowCount * 2] {
 // LEFT
-//  |          |      |                 |                |      |           |          |
-    KEY_TAB,   KEY_Q, KEY_W,            KEY_E,           KEY_R, KEY_T,
-    KEY_ESC,   KEY_A, KEY_S,            KEY_D,           KEY_F, KEY_G,
-    KEY_TILDE, KEY_Z, KEY_X,            KEY_C,           KEY_V, KEY_B,                 KEY_BACKSLASH,
-                      MODIFIERKEY_CTRL, MODIFIERKEY_ALT,        KEY_PERIOD, KEY_SPACE, /*LAYER TWO*/0,
+//  |                 |              |                |          |      |          |          |
+    KEY_TAB,          KEY_Q,         KEY_W,           KEY_E,     KEY_R, KEY_T,
+    KEY_ESC,          KEY_A,         KEY_S,           KEY_D,     KEY_F, KEY_G,
+    MODIFIERKEY_CTRL, KEY_BACKSLASH, KEY_Z,           KEY_X,     KEY_C, KEY_V,                MODIFIERKEY_SHIFT,
+                                     MODIFIERKEY_ALT, KEY_TILDE,        KEY_MINUS, KEY_SPACE, /*LAYER TWO*/0,
 // RIGHT
 // |                           |                  |      |               |                |              |
                                KEY_Y,             KEY_U, KEY_I,          KEY_O,           KEY_P,         KEY_BACKSPACE,
                                KEY_H,             KEY_J, KEY_K,          KEY_L,           KEY_SEMICOLON, KEY_QUOTE,
-   MODIFIERKEY_GUI,            KEY_B,             KEY_N, KEY_M,          KEY_MINUS,       KEY_EQUAL,     KEY_SLASH,
-   KEY_COMMA,       KEY_ENTER, MODIFIERKEY_SHIFT,        KEY_LEFT_BRACE, KEY_RIGHT_BRACE
+   MODIFIERKEY_GUI,            KEY_B,             KEY_N, KEY_M,          KEY_PERIOD,      KEY_COMMA,     KEY_SLASH,
+   KEY_EQUAL,       KEY_ENTER, MODIFIERKEY_SHIFT,        KEY_LEFT_BRACE, KEY_RIGHT_BRACE
 };
 
-int LayerTwo[leftColCount * leftRowCount * 2] {
+int LayerTwo[colCount * rowCount * 2] {
 // LEFT
-//  |
-    0, 0, 0,                       0,               KEY_COMMA, KEY_PERIOD,
-    0, 0, KEY_LEFT,                KEY_UP,          KEY_RIGHT, 0,
-    0, 0, 0,                       KEY_DOWN,        0,         0,             0,
-          MODIFIERKEY_CTRL,        MODIFIERKEY_ALT,            0,          0, /*NOOP*/0,
+//  |                 |  |                |         |          |           |  |
+    0,                0, 0,               0,        KEY_COMMA, KEY_PERIOD,
+    0,                0, KEY_LEFT,        KEY_UP,   KEY_RIGHT, 0,
+    MODIFIERKEY_CTRL, 0, 0,               KEY_DOWN, 0,         0,             0,
+                         MODIFIERKEY_ALT, 0,                   0,          0, /*NOOP*/0,
 // RIGHT
-// |
+// |                |  |                  |      |      |      |      |
                        0,                 KEY_7, KEY_8, KEY_9, KEY_0, 0,
                        0,                 KEY_4, KEY_5, KEY_6, 0,     0,
    MODIFIERKEY_GUI,    0,                 KEY_1, KEY_2, KEY_3, 0,     0,
    0,               0, MODIFIERKEY_SHIFT,        KEY_0, 0
 };
 
-
-
-
 void setup()
 {
   // Left
-  for (int r = 14; r <= 18; r++)
-      pinMode(r == 18 ? 22 : r, INPUT);
-  for (int c = 6; c <= 11; c++)
+  for (uint8_t r : leftRowPins)
+  {
+      pinMode(r, INPUT);
+  }
+  for (uint8_t c : leftColPins)
   {
       pinMode(c, INPUT);
   }
-
   // Right
+  uint16_t writeMask = 0x00;
+  for (uint8_t r : rightRowPins)
+  {
+      writeMask |= 0x01 << r;
+  }
   PCF.begin();
-  PCF.write16(0x00);
-  for (int r : rightRows)
-    PCF.write(r, HIGH);
+  PCF.write16(writeMask);
 }
 
 short count;
 int sendKeys[6];
 int mod;
-int layerKey = 24;
+int layerKey = 23;
 int layer;
 
-int getKey(int indexish)
+int getKey(int index)
 {
   if (layer == 0)
-    return LayerOne[indexish -1];
+    return LayerOne[index];
   else
-    return LayerTwo[indexish -1];
+    return LayerTwo[index];
 }
 
 void loop()
@@ -123,61 +122,56 @@ void loop()
   layer = 0;
 
   // Left
-  for (int colIndex=0; colIndex < leftColCount; colIndex++) {
+  for (uint8_t c = 0; c< colCount; c++) {
     // col: set to output to low
-    byte curCol = leftCols[colIndex];
-    pinMode(curCol, OUTPUT);
-    digitalWrite(curCol, LOW);
+    uint8_t colPin = leftColPins[c];
+    pinMode(colPin, OUTPUT);
+    digitalWrite(colPin, LOW);
 
     // row: interate through the rows
-    for (int rowIndex=0; rowIndex < leftRowCount; rowIndex++) {
-      byte rowCol = leftRows[rowIndex];
-      pinMode(rowCol, INPUT_PULLUP);
+    for (uint8_t r = 0; r< rowCount; r++) {
+      uint8_t rowPin = leftRowPins[r];
+      pinMode(rowPin, INPUT_PULLUP);
       delay(1);
-      if (digitalRead(rowCol) == 0)
+      if (digitalRead(rowPin) == 0)
       {
-        int key = conversionsLeft[colIndex][rowIndex];
-//        Serial.println(key);
+        uint8_t key = conversionsLeft[c][r];
         if (key == layerKey)
         {
           layer = 1;
         }
-        else if (key == 20 || key == 21)
+        else if (key == 19 || key == 12 || key == 18)
         {
-//          Serial.println("Left mod key pressed");
-          mod |= LayerOne[key - 1];
+          mod |= LayerOne[key];
         }
         else if (count == 5)
           return;
         else
           sendKeys[count++] = key;
       }
-      pinMode(rowCol, INPUT);
+      // disable the row
+      pinMode(rowPin, INPUT);
     }
     // disable the column
-    pinMode(curCol, INPUT);
+    pinMode(colPin, INPUT);
   }
 
   // Right
   if (PCF.isConnected())
-  for(int i = 0; i < rightColCount; i++)
+  for(uint8_t c = 0; c < colCount; c++)
   {
-    int c = rightCols[i];
-    PCF.write(c, LOW);
-    auto readme = PCF.read16();
-    // printPCF(readme);
-    for (int j = 0; j < rightRowCount; j++)
+    uint8_t colPin = rightColPins[c];
+    PCF.write(colPin, LOW);
+    uint8_t readme = PCF.read16();
+    for (uint8_t r = 0; r < rowCount; r++)
     {
-      if (!((readme >> j) & 0x1))
+      if (!((readme >> r) & 0x1))
       {
-        Serial.print(i);
-        Serial.print(", ");
-        Serial.println(j);
-        int key = conversionsRight[i][j];
+        uint8_t key = conversionsRight[c][r];
         Serial.println(key);
-        if (key == 13 || key == 22)
+        if (key == 12 || key == 21)
         {
-          mod |= LayerOne[key  + 23];
+          mod |= LayerOne[key + 24];
         }
         else if (count == 5)
           return;
@@ -185,7 +179,7 @@ void loop()
           sendKeys[count++] = key + 24;
       }
     }
-    PCF.write(c, HIGH);
+    PCF.write(colPin, HIGH);
   }
 
   // Write
