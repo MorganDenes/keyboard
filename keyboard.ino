@@ -23,16 +23,37 @@
 */
 
 #include "PCF8575.h"
+#define LAYER_TWO 0xAAAA
+
+class ShortMasks
+{
+public:
+    uint32_t first;
+    uint32_t second;
+};
+
+union KeyMask
+{
+    uint64_t full;
+    ShortMasks partial;
+};
 
 PCF8575 PCF(0x20, &Wire1);
 
 const uint8_t rowCount = 6;
 const uint8_t colCount = 5;
+const uint8_t keyCount = rowCount * colCount * 2;
 
 uint8_t leftColPins[colCount] { 14, 15, 20, 21, 22 };
 uint8_t leftRowPins[rowCount] { 6, 7, 8, 9, 10, 11 };
 uint8_t rightColPins[colCount] { 11, 12, 13, 14, 15 };
 uint8_t rightRowPins[rowCount] { 0, 1, 2, 3, 4, 5 };
+
+int count;
+int sendKeys[6];
+int mod;
+uint64_t layerKey;
+KeyMask keyMask;
 
 uint8_t conversionsLeft[colCount][rowCount] {
   { 16, 17, 99, 99, 20, 19 },
@@ -50,13 +71,13 @@ uint8_t conversionsRight[colCount][rowCount] {
   { 12, 19, 20, 21, 99, 99 }
 };
 
-int LayerOne[colCount * rowCount * 2] {
+int LayerOne[keyCount] {
 // LEFT
-//  |                 |              |                |          |      |          |          |
-    KEY_TAB,          KEY_Q,         KEY_W,           KEY_E,     KEY_R, KEY_T,
-    KEY_ESC,          KEY_A,         KEY_S,           KEY_D,     KEY_F, KEY_G,
-    MODIFIERKEY_CTRL, KEY_BACKSLASH, KEY_Z,           KEY_X,     KEY_C, KEY_V,                MODIFIERKEY_SHIFT,
-                                     MODIFIERKEY_ALT, KEY_TILDE,        KEY_MINUS, KEY_SPACE, /*LAYER TWO*/0,
+//  |                 |              |          |                |      |          |          |
+    KEY_TAB,          KEY_Q,         KEY_W,     KEY_E,           KEY_R, KEY_T,
+    KEY_ESC,          KEY_A,         KEY_S,     KEY_D,           KEY_F, KEY_G,
+    MODIFIERKEY_CTRL, KEY_BACKSLASH, KEY_Z,     KEY_X,           KEY_C, KEY_V,                MODIFIERKEY_SHIFT,
+                                     KEY_TILDE, MODIFIERKEY_ALT,        KEY_MINUS, KEY_SPACE, LAYER_TWO,
 // RIGHT
 // |                           |                  |      |               |                |              |
                                KEY_Y,             KEY_U, KEY_I,          KEY_O,           KEY_P,         KEY_BACKSPACE,
@@ -65,7 +86,7 @@ int LayerOne[colCount * rowCount * 2] {
    KEY_EQUAL,       KEY_ENTER, MODIFIERKEY_SHIFT,        KEY_LEFT_BRACE, KEY_RIGHT_BRACE
 };
 
-int LayerTwo[colCount * rowCount * 2] {
+int LayerTwo[keyCount] {
 // LEFT
 //  |                 |  |                |         |          |           |  |
     0,                0, 0,               0,        KEY_COMMA, KEY_PERIOD,
@@ -99,28 +120,52 @@ void setup()
   }
   PCF.begin();
   PCF.write16(writeMask);
+
+  // Find layer key
+  for(int i = 0; i < keyCount; i++)
+  {
+    if (LayerOne[i] == LAYER_TWO)
+    {
+        layerKey = 0x0001 << i;
+        break;
+    }
+  }
 }
 
-short count;
-int sendKeys[6];
-int mod;
-int layerKey = 23;
-int layer;
-
-int getKey(int index)
+void printBits(uint32_t b)
 {
-  if (layer == 0)
-    return LayerOne[index];
-  else
-    return LayerTwo[index];
+  Serial.print("0x");
+  for(int i = 0; i < 32; i++)
+  {
+    Serial.print(b & 0x1 << i ? '1' : '0');
+  }
+  Serial.println();
+}
+
+void setSendKeys(int layerKeys[])
+{
+    count = 0x00;
+    mod = 0x00;
+    for(int i = 0; i < keyCount; i++)
+    {
+        if (0x01 << i % 32 & (i < 32 ? keyMask.partial.first : keyMask.partial.second))
+        {
+            int keyValue = layerKeys[i];
+            if ((keyValue & 0xFF00) == 0xE000)
+            {
+                mod |= keyValue;
+            }
+            else if ((keyValue & 0xFF00) == 0xF000 && count != 6)
+            {
+                sendKeys[count++] = keyValue;
+            }
+        }
+    }
 }
 
 void loop()
 {
-  count = 0;
-  mod = 0x0;
-  layer = 0;
-
+  keyMask.full = 0x0000000;
   // Left
   for (uint8_t c = 0; c< colCount; c++) {
     // col: set to output to low
@@ -135,19 +180,7 @@ void loop()
       delay(1);
       if (digitalRead(rowPin) == 0)
       {
-        uint8_t key = conversionsLeft[c][r];
-        if (key == layerKey)
-        {
-          layer = 1;
-        }
-        else if (key == 19 || key == 12 || key == 18)
-        {
-          mod |= LayerOne[key];
-        }
-        else if (count == 5)
-          return;
-        else
-          sendKeys[count++] = key;
+        keyMask.partial.first |= 0x1 << conversionsLeft[c][r];
       }
       // disable the row
       pinMode(rowPin, INPUT);
@@ -167,20 +200,21 @@ void loop()
     {
       if (!((readme >> r) & 0x1))
       {
-        uint8_t key = conversionsRight[c][r];
-        Serial.println(key);
-        if (key == 12 || key == 21)
+        int index = conversionsRight[c][r] + 24;
+        if (index < 32)
         {
-          mod |= LayerOne[key + 24];
+            keyMask.partial.first |= 0x1 << index;
         }
-        else if (count == 5)
-          return;
         else
-          sendKeys[count++] = key + 24;
+        {
+            keyMask.partial.second |= 0x1 << (index - 32);
+        }
       }
     }
     PCF.write(colPin, HIGH);
   }
+
+  setSendKeys(keyMask.full & layerKey ? LayerTwo : LayerOne);
 
   // Write
   Keyboard.set_key1(0);
@@ -193,17 +227,17 @@ void loop()
   switch (count)
   {
   case 6:
-    Keyboard.set_key6(getKey(sendKeys[5]));
+    Keyboard.set_key6(sendKeys[5]);
   case 5:
-    Keyboard.set_key5(getKey(sendKeys[4]));
+    Keyboard.set_key5(sendKeys[4]);
   case 4:
-    Keyboard.set_key4(getKey(sendKeys[3]));
+    Keyboard.set_key4(sendKeys[3]);
   case 3:
-    Keyboard.set_key3(getKey(sendKeys[2]));
+    Keyboard.set_key3(sendKeys[2]);
   case 2:
-    Keyboard.set_key2(getKey(sendKeys[1]));
+    Keyboard.set_key2(sendKeys[1]);
   case 1:
-    Keyboard.set_key1(getKey(sendKeys[0]));
+    Keyboard.set_key1(sendKeys[0]);
   case 0:
     break;
   }
