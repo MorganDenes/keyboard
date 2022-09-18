@@ -22,20 +22,149 @@
      +-----------------+
 */
 
+void printBits(uint32_t b)
+{
+  Serial.print("0x");
+  for(int i = 0; i < 32; i++)
+  {
+    Serial.print(b & 0x1 << i ? '1' : '0');
+  }
+  Serial.println();
+}
+
 #include "PCF8575.h"
 #define LAYER_TWO 0xAAAA
 
-class ShortMasks
+class Keys
 {
+private:
+    uint32_t mask[2];
+
 public:
-    uint32_t first;
-    uint32_t second;
+    void Clear()
+    {
+        mask[0] = 0x0;
+        mask[1] = 0x0;
+    }
+
+    bool Get(int index)
+    {
+        return mask[index < 32] & 0x1 << index % 32;
+    }
+
+    void Set(int index)
+    {
+        mask[index < 32] |= 0x1 << index % 32;
+    }
+
+    void Unset(int index)
+    {
+        mask[index < 32] &= 0xFFFFFFFF ^ (0x1 << index % 32);
+    }
+
+    void Check()
+    {
+      printBits(mask[0]);
+      printBits(mask[1]);
+    }
 };
 
-union KeyMask
+class SendKeys
 {
-    uint64_t full;
-    ShortMasks partial;
+private:
+    int _mod;
+    int _count;
+    int _keys[6];
+    void (*_setkeys[6])(uint16_t) = {
+        [](uint16_t k){ Keyboard.set_key1(k); },
+        [](uint16_t k){ Keyboard.set_key2(k); },
+        [](uint16_t k){ Keyboard.set_key3(k); },
+        [](uint16_t k){ Keyboard.set_key4(k); },
+        [](uint16_t k){ Keyboard.set_key5(k); },
+        [](uint16_t k){ Keyboard.set_key6(k); }
+    };
+
+public:
+    void Clear()
+    {
+        _mod = 0;
+        _count = 0;
+    }
+
+    void Add(int k)
+    {
+        if ((k & 0xFF00) == 0xE000)
+        {
+            _mod |= k;
+        }
+        else if ((k & 0xFF00) == 0xF000 && _count != 6)
+        {
+            _keys[_count++] = k;
+        }
+    }
+
+    void Send()
+    {
+      for (auto i = 0; i < 6; i++)
+      {
+        _setkeys[i](i < _count ? _keys[i] : 0);
+      }
+      Keyboard.set_modifier(_mod);
+      Keyboard.send_now();
+    }
+};
+
+class HPKey
+{
+private:
+    const int _key;
+    const int _hold;
+    const unsigned long _delay = 90;
+
+    bool _set;
+    bool _held;
+    unsigned long _time;
+
+public:
+    HPKey(int k, int h) : _key(k), _hold(h) { }
+
+    void Check(Keys& keyMask, SendKeys& sendKeys)
+    {
+        bool pressed = keyMask.Get(_key);
+        if(!_set && pressed)
+        {
+            _set = true;
+            _held = false;
+            _time = millis();
+        }
+
+        if (_set)
+        {
+            if(pressed)
+            {
+                keyMask.Unset(_key);
+                if(millis() - _time > _delay)
+                {
+                    // set held
+                    sendKeys.Add(_hold);
+                    _held = true;
+                }
+            }
+            else
+            {
+                _set = false;
+                if (_held)
+                {
+                    keyMask.Unset(_key);
+                    _held = false;
+                }
+                else
+                {
+                  keyMask.Set(_key);
+                }
+            }
+        }
+    }
 };
 
 PCF8575 PCF(0x20, &Wire1);
@@ -49,11 +178,13 @@ uint8_t leftRowPins[rowCount] { 6, 7, 8, 9, 10, 11 };
 uint8_t rightColPins[colCount] { 11, 12, 13, 14, 15 };
 uint8_t rightRowPins[rowCount] { 0, 1, 2, 3, 4, 5 };
 
-int count;
-int sendKeys[6];
-int mod;
-uint64_t layerKey;
-KeyMask keyMask;
+uint16_t layerKey;
+Keys keyMask;
+SendKeys sendKeys;
+HPKey hpKeys[] = {
+    HPKey(22, MODIFIERKEY_SHIFT)
+    HPKey(21, MODIFIERKEY_CTRL)
+};
 
 uint8_t conversionsLeft[colCount][rowCount] {
   { 16, 17, 99, 99, 20, 19 },
@@ -82,7 +213,7 @@ int LayerOne[keyCount] {
 // |                           |                  |      |               |                |              |
                                KEY_Y,             KEY_U, KEY_I,          KEY_O,           KEY_P,         KEY_BACKSPACE,
                                KEY_H,             KEY_J, KEY_K,          KEY_L,           KEY_SEMICOLON, KEY_QUOTE,
-   MODIFIERKEY_GUI,            KEY_B,             KEY_N, KEY_M,          KEY_PERIOD,      KEY_COMMA,     KEY_SLASH,
+   MODIFIERKEY_GUI,            KEY_B,             KEY_N, KEY_M,          KEY_COMMA,       KEY_PERIOD,    KEY_SLASH,     
    KEY_EQUAL,       KEY_ENTER, MODIFIERKEY_SHIFT,        KEY_LEFT_BRACE, KEY_RIGHT_BRACE
 };
 
@@ -126,46 +257,15 @@ void setup()
   {
     if (LayerOne[i] == LAYER_TWO)
     {
-        layerKey = 0x0001 << i;
+        layerKey = i;
         break;
     }
   }
 }
 
-void printBits(uint32_t b)
-{
-  Serial.print("0x");
-  for(int i = 0; i < 32; i++)
-  {
-    Serial.print(b & 0x1 << i ? '1' : '0');
-  }
-  Serial.println();
-}
-
-void setSendKeys(int layerKeys[])
-{
-    count = 0x00;
-    mod = 0x00;
-    for(int i = 0; i < keyCount; i++)
-    {
-        if (0x01 << i % 32 & (i < 32 ? keyMask.partial.first : keyMask.partial.second))
-        {
-            int keyValue = layerKeys[i];
-            if ((keyValue & 0xFF00) == 0xE000)
-            {
-                mod |= keyValue;
-            }
-            else if ((keyValue & 0xFF00) == 0xF000 && count != 6)
-            {
-                sendKeys[count++] = keyValue;
-            }
-        }
-    }
-}
-
 void loop()
 {
-  keyMask.full = 0x0000000;
+  keyMask.Clear();
   // Left
   for (uint8_t c = 0; c< colCount; c++) {
     // col: set to output to low
@@ -180,7 +280,7 @@ void loop()
       delay(1);
       if (digitalRead(rowPin) == 0)
       {
-        keyMask.partial.first |= 0x1 << conversionsLeft[c][r];
+          keyMask.Set(conversionsLeft[c][r]);
       }
       // disable the row
       pinMode(rowPin, INPUT);
@@ -200,47 +300,26 @@ void loop()
     {
       if (!((readme >> r) & 0x1))
       {
-        int index = conversionsRight[c][r] + 24;
-        if (index < 32)
-        {
-            keyMask.partial.first |= 0x1 << index;
-        }
-        else
-        {
-            keyMask.partial.second |= 0x1 << (index - 32);
-        }
+          keyMask.Set(conversionsRight[c][r] + 24);
       }
     }
     PCF.write(colPin, HIGH);
   }
 
-  setSendKeys(keyMask.full & layerKey ? LayerTwo : LayerOne);
-
-  // Write
-  Keyboard.set_key1(0);
-  Keyboard.set_key2(0);
-  Keyboard.set_key3(0);
-  Keyboard.set_key4(0);
-  Keyboard.set_key5(0);
-  Keyboard.set_key6(0);
-  Keyboard.set_modifier(mod);
-  switch (count)
+  // SEND
+  sendKeys.Clear();
+  for (auto& k : hpKeys)
   {
-  case 6:
-    Keyboard.set_key6(sendKeys[5]);
-  case 5:
-    Keyboard.set_key5(sendKeys[4]);
-  case 4:
-    Keyboard.set_key4(sendKeys[3]);
-  case 3:
-    Keyboard.set_key3(sendKeys[2]);
-  case 2:
-    Keyboard.set_key2(sendKeys[1]);
-  case 1:
-    Keyboard.set_key1(sendKeys[0]);
-  case 0:
-    break;
+    k.Check(keyMask, sendKeys);
   }
-  Keyboard.send_now();
-  delay(10);
+  
+  for(int i = 0; i < keyCount; i++)
+  {
+    if (keyMask.Get(i))
+    {
+      sendKeys.Add(!keyMask.Get(layerKey) ? LayerOne[i] : LayerTwo[i]);
+    }
+  }
+  sendKeys.Send();
+  delay(5);
 }
