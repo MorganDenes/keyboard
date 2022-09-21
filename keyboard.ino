@@ -58,7 +58,7 @@ public:
     }
 
     void Unset(int index)
-    {
+   {
         mask[index < 32] &= 0xFFFFFFFF ^ (0x1 << index % 32);
     }
 
@@ -97,7 +97,7 @@ public:
         {
             _mod |= k;
         }
-        else if ((k & 0xFF00) == 0xF000 && _count != 6)
+        else if (((k & 0xFF00) == 0xF000 || (k & 0xFF00) == 0xE400) && _count != 6)
         {
             _keys[_count++] = k;
         }
@@ -114,26 +114,27 @@ public:
     }
 };
 
-class HPKey
+class DelayKey
 {
 private:
     const int _key;
     const int _hold;
-    const unsigned long _delay = 90;
+    const unsigned long _delay = 80;
 
     bool _set;
     bool _held;
     unsigned long _time;
 
 public:
-    HPKey(int k, int h) : _key(k), _hold(h) { }
+    DelayKey(int k, int h, int d = 100) : _key(k), _hold(h), _delay(d) { }
 
-    void Check(Keys& keyMask, SendKeys& sendKeys)
+    void Check(Keys& keyMask, SendKeys& sendKeys , int& active, bool& layer, bool& wait)
     {
         bool pressed = keyMask.Get(_key);
         if(!_set && pressed)
         {
             _set = true;
+            active++;
             _held = false;
             _time = millis();
         }
@@ -143,11 +144,23 @@ public:
             if(pressed)
             {
                 keyMask.Unset(_key);
-                if(millis() - _time > _delay)
+                if(_held || millis() - _time > _delay)
                 {
-                    // set held
-                    sendKeys.Add(_hold);
+                    if ((_hold & 0xFF00) == 0xAA00)
+                    {
+                        layer = false;
+                    }
+                    else
+                    {
+                        sendKeys.Add(_hold);
+                    }
+
+                    if (!_held)
+                    {
+                        active--;
+                    }
                     _held = true;
+                    wait = true;
                 }
             }
             else
@@ -157,10 +170,12 @@ public:
                 {
                     keyMask.Unset(_key);
                     _held = false;
+                    wait = true;
                 }
                 else
                 {
                   keyMask.Set(_key);
+                  active--;
                 }
             }
         }
@@ -179,13 +194,12 @@ uint8_t rightColPins[colCount] { 11, 12, 13, 14, 15 };
 uint8_t rightRowPins[rowCount] { 0, 1, 2, 3, 4, 5 };
 
 uint16_t layerKey;
+bool delayWait = false;
+int delayActive = 0;
+Keys delayIgnoreMask;
+Keys delayMask;
 Keys keyMask;
 SendKeys sendKeys;
-HPKey hpKeys[] = {
-    HPKey(22, MODIFIERKEY_SHIFT)
-    HPKey(21, MODIFIERKEY_CTRL)
-};
-
 uint8_t conversionsLeft[colCount][rowCount] {
   { 16, 17, 99, 99, 20, 19 },
   { 10, 11, 15, 14, 13, 12 },
@@ -202,19 +216,29 @@ uint8_t conversionsRight[colCount][rowCount] {
   { 12, 19, 20, 21, 99, 99 }
 };
 
+DelayKey hpKeys[] = {
+    DelayKey(20, MODIFIERKEY_ALT),
+    DelayKey(21, MODIFIERKEY_SHIFT, 80),
+    DelayKey(22, MODIFIERKEY_CTRL, 120),
+    DelayKey(23, LAYER_TWO),
+    DelayKey(19 + 24, MODIFIERKEY_GUI, 130),
+    DelayKey(20 + 24, MODIFIERKEY_SHIFT),
+    DelayKey(21 + 24, MODIFIERKEY_CTRL),
+};
+
 int LayerOne[keyCount] {
 // LEFT
-//  |                 |              |          |                |      |          |          |
-    KEY_TAB,          KEY_Q,         KEY_W,     KEY_E,           KEY_R, KEY_T,
-    KEY_ESC,          KEY_A,         KEY_S,     KEY_D,           KEY_F, KEY_G,
-    MODIFIERKEY_CTRL, KEY_BACKSLASH, KEY_Z,     KEY_X,           KEY_C, KEY_V,                MODIFIERKEY_SHIFT,
-                                     KEY_TILDE, MODIFIERKEY_ALT,        KEY_MINUS, KEY_SPACE, LAYER_TWO,
+//  |          |              |               |                |      |          |          |
+    KEY_TAB,   KEY_Q,         KEY_W,          KEY_E,           KEY_R, KEY_T,
+    KEY_ESC,   KEY_A,         KEY_S,          KEY_D,           KEY_F, KEY_G,
+    KEY_TILDE, KEY_BACKSLASH, KEY_Z,          KEY_X,           KEY_C, KEY_V,                KEY_BACKSPACE,
+                              KEY_LEFT_BRACE, KEY_RIGHT_BRACE,        KEY_MINUS, KEY_SPACE, KEY_DELETE,
 // RIGHT
-// |                           |                  |      |               |                |              |
-                               KEY_Y,             KEY_U, KEY_I,          KEY_O,           KEY_P,         KEY_BACKSPACE,
-                               KEY_H,             KEY_J, KEY_K,          KEY_L,           KEY_SEMICOLON, KEY_QUOTE,
-   MODIFIERKEY_GUI,            KEY_B,             KEY_N, KEY_M,          KEY_COMMA,       KEY_PERIOD,    KEY_SLASH,     
-   KEY_EQUAL,       KEY_ENTER, MODIFIERKEY_SHIFT,        KEY_LEFT_BRACE, KEY_RIGHT_BRACE
+// |              |          |           |      |                     |                     |              |
+                             KEY_Y,      KEY_U, KEY_I,                KEY_O,                KEY_P,         KEY_PRINTSCREEN,
+                             KEY_H,      KEY_J, KEY_K,                KEY_L,                KEY_SEMICOLON, KEY_QUOTE,
+   KEY_DELETE,               KEY_B,      KEY_N, KEY_M,                KEY_COMMA,            KEY_PERIOD,    KEY_SLASH,
+   KEY_BACKSPACE, KEY_ENTER, KEY_EQUAL,        KEY_MEDIA_VOLUME_DEC, KEY_MEDIA_VOLUME_INC
 };
 
 int LayerTwo[keyCount] {
@@ -308,17 +332,62 @@ void loop()
 
   // SEND
   sendKeys.Clear();
+  bool layer_one = true;
+  bool wait = false;
   for (auto& k : hpKeys)
   {
-    k.Check(keyMask, sendKeys);
+    k.Check(keyMask, sendKeys, delayActive, layer_one, wait);
   }
-  
-  for(int i = 0; i < keyCount; i++)
+
+  if (delayActive != 0)
   {
-    if (keyMask.Get(i))
-    {
-      sendKeys.Add(!keyMask.Get(layerKey) ? LayerOne[i] : LayerTwo[i]);
-    }
+      if (!delayWait)
+      {
+          delayIgnoreMask.Clear();
+          for (int i = 0; i < keyCount; i++)
+          {
+              if (keyMask.Get(i))
+              {
+                  keyMask.Unset(i);
+                  delayIgnoreMask.Set(i);
+              }
+          }
+          delayWait = true;
+      }
+      else
+      {
+          for (int i = 0; i < keyCount; i++)
+          {
+              if (keyMask.Get(i) && !delayIgnoreMask.Get(i))
+              {
+                  keyMask.Unset(i);
+                  delayMask.Set(i);
+              }
+          }
+      }
+  }
+  else
+  {
+      if (delayWait && !wait)
+      {
+          for (int i = 0; i < keyCount; i++)
+          {
+              if (delayMask.Get(i))
+              {
+                  keyMask.Set(i);
+              }
+          }
+          delayMask.Clear();
+          delayWait = false;
+      }
+
+      for(int i = 0; i < keyCount; i++)
+      {
+        if (keyMask.Get(i))
+        {
+          sendKeys.Add(layer_one ? LayerOne[i] : LayerTwo[i]);
+        }
+      }
   }
   sendKeys.Send();
   delay(5);
