@@ -119,7 +119,7 @@ class DelayKey
 private:
     const int _key;
     const int _hold;
-    const unsigned long _delay = 80;
+    const unsigned long _delay;
 
     bool _set;
     bool _held;
@@ -184,6 +184,18 @@ public:
 
 PCF8575 PCF(0x20, &Wire1);
 
+bool delayWait = false; // state to know when delay key superposition is at play
+int delayActive = 0; // running total of outstanding superposition delay keys
+Keys delayIgnoreMask; // keys presssed before a delay key should be ignored
+Keys delayMask; // Gather these until all delay keys resolve then send them
+
+uint16_t layerKey;
+bool layerActive = false;
+Keys layerMask; // Prevent keypresses to outlive the layer key
+
+Keys keyMask;// Activly pressed keys, sort of. Delay keys will eat these
+SendKeys sendKeys;
+
 const uint8_t rowCount = 6;
 const uint8_t colCount = 5;
 const uint8_t keyCount = rowCount * colCount * 2;
@@ -193,13 +205,6 @@ uint8_t leftRowPins[rowCount] { 6, 7, 8, 9, 10, 11 };
 uint8_t rightColPins[colCount] { 11, 12, 13, 14, 15 };
 uint8_t rightRowPins[rowCount] { 0, 1, 2, 3, 4, 5 };
 
-uint16_t layerKey;
-bool delayWait = false;
-int delayActive = 0;
-Keys delayIgnoreMask;
-Keys delayMask;
-Keys keyMask;
-SendKeys sendKeys;
 uint8_t conversionsLeft[colCount][rowCount] {
   { 16, 17, 99, 99, 20, 19 },
   { 10, 11, 15, 14, 13, 12 },
@@ -390,5 +395,6 @@ void loop()
       }
   }
   sendKeys.Send();
-  delay(5);
+  delay(1);
 }
+
