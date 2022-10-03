@@ -58,8 +58,26 @@ public:
     }
 
     void Unset(int index)
-   {
+    {
         mask[index < 32] &= 0xFFFFFFFF ^ (0x1 << index % 32);
+    }
+
+    void Map(Keys& target, bool set = true)
+    {
+      for (int i = 0; i < 60; i++)
+      {
+          if (this->Get(i))
+          {
+              if (set)
+              {
+                target.Set(i);
+              }
+              else
+              {
+                target.Unset(i);
+              }
+          }
+      }
     }
 
     void Check()
@@ -158,9 +176,9 @@ public:
                     if (!_held)
                     {
                         active--;
+                        wait = true;
                     }
                     _held = true;
-                    wait = true;
                 }
             }
             else
@@ -170,12 +188,12 @@ public:
                 {
                     keyMask.Unset(_key);
                     _held = false;
-                    wait = true;
                 }
                 else
                 {
                   keyMask.Set(_key);
                   active--;
+                  wait = true;
                 }
             }
         }
@@ -292,6 +310,17 @@ void setup()
   }
 }
 
+void SetSendKeys(int layer[])
+{
+  for(int i = 0; i < keyCount; i++)
+  {
+    if (keyMask.Get(i))
+    {
+      sendKeys.Add(layer[i]);
+    }
+  }
+}
+
 void loop()
 {
   keyMask.Clear();
@@ -348,15 +377,9 @@ void loop()
   {
       if (!delayWait)
       {
+          delayMask.Clear();
           delayIgnoreMask.Clear();
-          for (int i = 0; i < keyCount; i++)
-          {
-              if (keyMask.Get(i))
-              {
-                  keyMask.Unset(i);
-                  delayIgnoreMask.Set(i);
-              }
-          }
+          keyMask.Map(delayIgnoreMask);
           delayWait = true;
       }
       else
@@ -375,26 +398,12 @@ void loop()
   {
       if (delayWait && !wait)
       {
-          for (int i = 0; i < keyCount; i++)
-          {
-              if (delayMask.Get(i))
-              {
-                  keyMask.Set(i);
-              }
-          }
-          delayMask.Clear();
+          delayMask.Map(keyMask);
           delayWait = false;
       }
-
-      for(int i = 0; i < keyCount; i++)
-      {
-        if (keyMask.Get(i))
-        {
-          sendKeys.Add(layer_one ? LayerOne[i] : LayerTwo[i]);
-        }
-      }
   }
-  sendKeys.Send();
-  delay(1);
-}
 
+  SetSendKeys(layer_one ? LayerOne : LayerTwo);
+  sendKeys.Send();
+  delay(4);
+}
