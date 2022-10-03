@@ -33,7 +33,10 @@ void printBits(uint32_t b)
 }
 
 #include "PCF8575.h"
-#define LAYER_TWO 0xAAAA
+#define LAYER_ONE 0xAA00
+#define LAYER_TWO 0xAA01
+#define LAYER_THREE 0xAA02
+#define LAYER_FOUR 0xAA04
 
 class Keys
 {
@@ -115,7 +118,7 @@ public:
         {
             _mod |= k;
         }
-        else if (((k & 0xFF00) == 0xF000 || (k & 0xFF00) == 0xE400) && _count != 6)
+        else if ((k & 0xFF00) != 0xAA00 && k != 0 && _count != 6)
         {
             _keys[_count++] = k;
         }
@@ -137,6 +140,7 @@ class DelayKey
 private:
     const int _key;
     const int _hold;
+    const int _layer;
     const unsigned long _delay;
 
     bool _set;
@@ -144,9 +148,9 @@ private:
     unsigned long _time;
 
 public:
-    DelayKey(int k, int h, int d = 100) : _key(k), _hold(h), _delay(d) { }
+    DelayKey(int k, int h, int d = 100, int l = 0x0) : _key(k), _hold(h), _layer(l), _delay(d) { }
 
-    void Check(Keys& keyMask, SendKeys& sendKeys , int& active, bool& layer, bool& wait)
+    void Check(Keys& keyMask, SendKeys& sendKeys , int& active, int& layer, bool& wait)
     {
         bool pressed = keyMask.Get(_key);
         if(!_set && pressed)
@@ -164,11 +168,16 @@ public:
                 keyMask.Unset(_key);
                 if(_held || millis() - _time > _delay)
                 {
-                    if ((_hold & 0xFF00) == 0xAA00)
+                    if ((_layer & 0xFF00) == 0xAA00 )
                     {
-                        layer = false;
+                        layer = _layer;
                     }
-                    else
+                    else if ((_hold & 0xFF00) == 0xAA00)
+                    {
+                        layer = _hold;
+                    }
+
+                    if ((_hold & 0xFF00) != 0xAA00)
                     {
                         sendKeys.Add(_hold);
                     }
@@ -207,7 +216,6 @@ int delayActive = 0; // running total of outstanding superposition delay keys
 Keys delayIgnoreMask; // keys presssed before a delay key should be ignored
 Keys delayMask; // Gather these until all delay keys resolve then send them
 
-uint16_t layerKey;
 bool layerActive = false;
 Keys layerMask; // Prevent keypresses to outlive the layer key
 
@@ -224,24 +232,24 @@ uint8_t rightColPins[colCount] { 11, 12, 13, 14, 15 };
 uint8_t rightRowPins[rowCount] { 0, 1, 2, 3, 4, 5 };
 
 uint8_t conversionsLeft[colCount][rowCount] {
-  { 16, 17, 99, 99, 20, 19 },
-  { 10, 11, 15, 14, 13, 12 },
-  {  4,  5,  9,  8,  7,  6 },
-  { 99, 99,  3,  2,  1,  0 },
-  { 23, 18, 22, 21, 99, 99 }
+    { 16, 17, 99, 99, 20, 19 },
+    { 10, 11, 15, 14, 13, 12 },
+    {  4,  5,  9,  8,  7,  6 },
+    { 99, 99,  3,  2,  1,  0 },
+    { 23, 18, 22, 21, 99, 99 }
 };
 
 uint8_t conversionsRight[colCount][rowCount] {
-  { 99, 99,  2,  3,  4,  5 },
-  {  0,  1,  8, 9, 10, 11 },
-  { 13, 14, 99, 99, 22, 23 },
-  {  6,  7, 15, 16, 17, 18 },
-  { 12, 19, 20, 21, 99, 99 }
+    { 99, 99,  2,  3,  4,  5 },
+    {  0,  1,  8,  9, 10, 11 },
+    { 13, 14, 99, 99, 22, 23 },
+    {  6,  7, 15, 16, 17, 18 },
+    { 12, 19, 20, 21, 99, 99 }
 };
 
 DelayKey hpKeys[] = {
     DelayKey(20, MODIFIERKEY_ALT),
-    DelayKey(21, MODIFIERKEY_SHIFT, 80),
+    DelayKey(21, MODIFIERKEY_SHIFT),
     DelayKey(22, MODIFIERKEY_CTRL, 120),
     DelayKey(23, LAYER_TWO),
     DelayKey(19 + 24, MODIFIERKEY_GUI, 130),
@@ -261,10 +269,40 @@ int LayerOne[keyCount] {
                              KEY_Y,      KEY_U, KEY_I,                KEY_O,                KEY_P,         KEY_PRINTSCREEN,
                              KEY_H,      KEY_J, KEY_K,                KEY_L,                KEY_SEMICOLON, KEY_QUOTE,
    KEY_DELETE,               KEY_B,      KEY_N, KEY_M,                KEY_COMMA,            KEY_PERIOD,    KEY_SLASH,
-   KEY_BACKSPACE, KEY_ENTER, KEY_EQUAL,        KEY_MEDIA_VOLUME_DEC, KEY_MEDIA_VOLUME_INC
+   KEY_BACKSPACE, KEY_ENTER, KEY_EQUAL,         KEY_MEDIA_VOLUME_DEC, KEY_MEDIA_VOLUME_INC
 };
 
 int LayerTwo[keyCount] {
+// LEFT
+//  |                 |  |                |         |          |           |  |
+    0,                0, 0,               0,        KEY_COMMA, KEY_PERIOD,
+    0,                0, KEY_LEFT,        KEY_UP,   KEY_RIGHT, 0,
+    MODIFIERKEY_CTRL, 0, 0,               KEY_DOWN, 0,         0,             0,
+                         MODIFIERKEY_ALT, 0,                   0,          0, /*NOOP*/0,
+// RIGHT
+// |                |  |                  |      |      |      |      |
+                       0,                 KEY_7, KEY_8, KEY_9, KEY_0, 0,
+                       0,                 KEY_4, KEY_5, KEY_6, 0,     0,
+   MODIFIERKEY_GUI,    0,                 KEY_1, KEY_2, KEY_3, 0,     0,
+   0,               0, MODIFIERKEY_SHIFT,        KEY_0, 0
+};
+
+int LayerThree[keyCount] {
+// LEFT
+//  |                 |  |                |         |          |           |  |
+    0,                0, 0,               0,        KEY_COMMA, KEY_PERIOD,
+    0,                0, KEY_LEFT,        KEY_UP,   KEY_RIGHT, 0,
+    MODIFIERKEY_CTRL, 0, 0,               KEY_DOWN, 0,         0,             0,
+                         MODIFIERKEY_ALT, 0,                   0,          0, /*NOOP*/0,
+// RIGHT
+// |                |  |                  |      |      |      |      |
+                       0,                 KEY_7, KEY_8, KEY_9, KEY_0, 0,
+                       0,                 KEY_4, KEY_5, KEY_6, 0,     0,
+   MODIFIERKEY_GUI,    0,                 KEY_1, KEY_2, KEY_3, 0,     0,
+   0,               0, MODIFIERKEY_SHIFT,        KEY_0, 0
+};
+
+int LayerFour[keyCount] {
 // LEFT
 //  |                 |  |                |         |          |           |  |
     0,                0, 0,               0,        KEY_COMMA, KEY_PERIOD,
@@ -298,16 +336,6 @@ void setup()
   }
   PCF.begin();
   PCF.write16(writeMask);
-
-  // Find layer key
-  for(int i = 0; i < keyCount; i++)
-  {
-    if (LayerOne[i] == LAYER_TWO)
-    {
-        layerKey = i;
-        break;
-    }
-  }
 }
 
 void SetSendKeys(int layer[])
@@ -319,6 +347,24 @@ void SetSendKeys(int layer[])
       sendKeys.Add(layer[i]);
     }
   }
+}
+
+int* GetLayer(int layer)
+{
+    switch (layer)
+    {
+    case LAYER_ONE:
+        return LayerOne;
+    case LAYER_TWO:
+        return LayerTwo;
+    case LAYER_THREE:
+        return LayerThree;
+    case LAYER_FOUR:
+        return LayerFour;
+    default:
+      break;
+    }
+    return LayerOne;
 }
 
 void loop()
@@ -366,11 +412,11 @@ void loop()
 
   // SEND
   sendKeys.Clear();
-  bool layer_one = true;
+  int layer = LAYER_ONE;
   bool wait = false;
   for (auto& k : hpKeys)
   {
-    k.Check(keyMask, sendKeys, delayActive, layer_one, wait);
+    k.Check(keyMask, sendKeys, delayActive, layer, wait);
   }
 
   if (delayActive != 0)
@@ -403,7 +449,30 @@ void loop()
       }
   }
 
-  SetSendKeys(layer_one ? LayerOne : LayerTwo);
+  if (layer != LAYER_ONE)
+  {
+      keyMask.Map(layerMask);
+  }
+  else
+  {
+      for (int i = 0; i < keyCount; i++)
+      {
+          if (layerMask.Get(i))
+          {
+              if (keyMask.Get(i))
+              {
+                  keyMask.Unset(i);
+              }
+              else
+              {
+                  layerMask.Unset(i);
+              }
+          }
+      }
+  }
+
+
+  SetSendKeys(GetLayer(layer));
   sendKeys.Send();
   delay(4);
 }
