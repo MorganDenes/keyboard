@@ -5,6 +5,14 @@ I found the model online and I need to find the link.
 
 https://www.thingiverse.com/thing:2923851
 
+![first](./first.jpg)
+
+![second](./second.jpg)
+
+![third](./third.jpg)
+
+![fourth](./fourth.jpg)
+
 Uses the PCF8575 library.
 Also, may have a dependency on the Teensyduino library for the Keyboard object.
 

@@ -247,74 +247,92 @@ uint8_t conversionsRight[colCount][rowCount] {
     { 12, 19, 20, 21, 99, 99 }
 };
 
+// Add 1 to the base numbers to get the correct key
 DelayKey hpKeys[] = {
-    DelayKey(20, MODIFIERKEY_ALT),
+    DelayKey(12, LAYER_FOUR),
     DelayKey(21, MODIFIERKEY_SHIFT),
-    DelayKey(22, MODIFIERKEY_CTRL, 120),
-    DelayKey(23, LAYER_TWO),
-    DelayKey(19 + 24, MODIFIERKEY_GUI, 130),
-    DelayKey(20 + 24, MODIFIERKEY_SHIFT),
-    DelayKey(21 + 24, MODIFIERKEY_CTRL),
+    DelayKey(22, MODIFIERKEY_CTRL),
+    DelayKey(23, MODIFIERKEY_SHIFT, 110, LAYER_THREE),
+    DelayKey(11 + 24, LAYER_TWO),
+    DelayKey(20 + 24, MODIFIERKEY_SHIFT)
+    // DelayKey(21 + 24, MODIFIERKEY_CTRL)
 };
 
+// LAYER ONE
+// <Alphas>
+// ;'/\.,-=[]`+*
+// <Enter> <Space> <Backspace> <Esc> <Meta>
 int LayerOne[keyCount] {
 // LEFT
-//  |          |              |               |                |      |          |          |
-    KEY_TAB,   KEY_Q,         KEY_W,          KEY_E,           KEY_R, KEY_T,
-    KEY_ESC,   KEY_A,         KEY_S,          KEY_D,           KEY_F, KEY_G,
-    KEY_TILDE, KEY_BACKSLASH, KEY_Z,          KEY_X,           KEY_C, KEY_V,                KEY_BACKSPACE,
-                              KEY_LEFT_BRACE, KEY_RIGHT_BRACE,        KEY_MINUS, KEY_SPACE, KEY_DELETE,
+//  |               |      |                |               |      |              |          |
+    KEY_LEFT_BRACE, KEY_B, KEY_Y,           KEY_O,          KEY_U, KEY_MINUS,
+    KEY_TILDE,      KEY_C, KEY_I,           KEY_E,          KEY_A, KEY_SEMICOLON,
+    KEY_SLASH,      KEY_G, KEY_X,           KEY_J,          KEY_K, KEY_COMMA,                MODIFIERKEY_GUI,
+                           MODIFIERKEY_ALT, KEYPAD_ASTERIX,        KEY_ESC,       KEY_SPACE, KEY_TAB,
 // RIGHT
-// |              |          |           |      |                     |                     |              |
-                             KEY_Y,      KEY_U, KEY_I,                KEY_O,                KEY_P,         KEY_PRINTSCREEN,
-                             KEY_H,      KEY_J, KEY_K,                KEY_L,                KEY_SEMICOLON, KEY_QUOTE,
-   KEY_DELETE,               KEY_B,      KEY_N, KEY_M,                KEY_COMMA,            KEY_PERIOD,    KEY_SLASH,
-   KEY_BACKSPACE, KEY_ENTER, KEY_EQUAL,         KEY_MEDIA_VOLUME_DEC, KEY_MEDIA_VOLUME_INC
+// |                |          |           |      |      |      |      |
+                               KEY_EQUAL,  KEY_L, KEY_D, KEY_W, KEY_V, KEY_RIGHT_BRACE,
+                               KEY_Q,      KEY_H, KEY_T, KEY_S, KEY_N, KEY_QUOTE,
+   MODIFIERKEY_GUI,            KEY_PERIOD, KEY_R, KEY_M, KEY_F, KEY_P, KEY_BACKSLASH,
+   KEY_BACKSPACE,   KEY_ENTER, KEY_DELETE,        KEY_Z, KEYPAD_PLUS
 };
 
+// LAYER TWO
+// *-=+./;'\,[]
+// <Number line>
+// <Enter> <Space> <Backspace>
 int LayerTwo[keyCount] {
 // LEFT
-//  |                 |  |                |         |          |           |  |
-    0,                0, 0,               0,        KEY_COMMA, KEY_PERIOD,
-    0,                0, KEY_LEFT,        KEY_UP,   KEY_RIGHT, 0,
-    MODIFIERKEY_CTRL, 0, 0,               KEY_DOWN, 0,         0,             0,
-                         MODIFIERKEY_ALT, 0,                   0,          0, /*NOOP*/0,
+//  |          |              |      |               |                |              |           |
+    0,         KEY_B,         KEY_1, KEY_9,          KEY_0,           0,
+    KEY_TILDE, KEY_4,         KEY_5, KEY_LEFT_BRACE, KEY_RIGHT_BRACE, KEY_SEMICOLON,
+    0,         KEY_BACKSLASH, KEY_X, KEY_7,          KEY_6,           KEY_COMMA,                0,
+                             0,     KEY_F,                            0,             KEY_SPACE, KEY_TAB,
 // RIGHT
-// |                |  |                  |      |      |      |      |
-                       0,                 KEY_7, KEY_8, KEY_9, KEY_0, 0,
-                       0,                 KEY_4, KEY_5, KEY_6, 0,     0,
-   MODIFIERKEY_GUI,    0,                 KEY_1, KEY_2, KEY_3, 0,     0,
-   0,               0, MODIFIERKEY_SHIFT,        KEY_0, 0
+// |              |          |             |      |      |      |               |
+                             KEY_EQUAL,    KEY_7, KEY_8, KEY_9, KEYPAD_MINUS,   0,
+                             KEYPAD_SLASH, KEY_4, KEY_5, KEY_6, KEYPAD_PLUS,    /*NOOP*/0,
+   0,                        KEY_PERIOD,   KEY_1, KEY_2, KEY_3, KEYPAD_ASTERIX, 0,
+   KEY_BACKSPACE, KEY_ENTER, KEY_0,               KEY_X, KEY_F
 };
 
+// LAYER THREE
+// ~!@#$%^&*()?<>_+-"|{}
+// <Enter> <Space> <Backspace> <Esc> <Meta>
 int LayerThree[keyCount] {
 // LEFT
-//  |                 |  |                |         |          |           |  |
-    0,                0, 0,               0,        KEY_COMMA, KEY_PERIOD,
-    0,                0, KEY_LEFT,        KEY_UP,   KEY_RIGHT, 0,
-    MODIFIERKEY_CTRL, 0, 0,               KEY_DOWN, 0,         0,             0,
-                         MODIFIERKEY_ALT, 0,                   0,          0, /*NOOP*/0,
+//  |          |              |      |               |                |              |  |
+    0,         0,             KEY_1, KEY_9,          KEY_0,           KEY_MINUS,
+    KEY_TILDE, KEY_4,         KEY_5, KEY_LEFT_BRACE, KEY_RIGHT_BRACE, KEY_SEMICOLON,
+    0,         KEY_BACKSLASH, 0,     KEY_7,          KEY_6,           KEY_COMMA,        0,
+                              0,     0,                               0,             0, /*NOOP*/0,
 // RIGHT
-// |                |  |                  |      |      |      |      |
-                       0,                 KEY_7, KEY_8, KEY_9, KEY_0, 0,
-                       0,                 KEY_4, KEY_5, KEY_6, 0,     0,
-   MODIFIERKEY_GUI,    0,                 KEY_1, KEY_2, KEY_3, 0,     0,
-   0,               0, MODIFIERKEY_SHIFT,        KEY_0, 0
+// |              |          |             |          |       |          |               |
+                             KEY_EQUAL,    KEY_QUOTE, 0,      0,         KEYPAD_MINUS,   0,
+                             KEY_LEFT,     KEY_DOWN,  KEY_UP, KEY_RIGHT, KEYPAD_PLUS,    0,
+   0,                        KEY_PERIOD,   KEY_SLASH, KEY_2,  KEY_3,     KEYPAD_ASTERIX, 0,
+   KEY_BACKSPACE, KEY_ENTER, KEY_DELETE,              0,      0
 };
 
+// LAYER FOUR
+// <Function keys>
+// <Enter> <Space> <Backspace> <Esc> <Meta>
+// <Arrow keys>
+// <Arrow keys>
+// CXPZY for default copy paste and stuff
 int LayerFour[keyCount] {
 // LEFT
-//  |                 |  |                |         |          |           |  |
-    0,                0, 0,               0,        KEY_COMMA, KEY_PERIOD,
-    0,                0, KEY_LEFT,        KEY_UP,   KEY_RIGHT, 0,
-    MODIFIERKEY_CTRL, 0, 0,               KEY_DOWN, 0,         0,             0,
-                         MODIFIERKEY_ALT, 0,                   0,          0, /*NOOP*/0,
+//  |          |       |       |                |                 |            |          |
+    KEY_F1,    KEY_F2, KEY_F3, KEY_F4,          KEY_F5,           KEY_F6,
+    KEY_HOME,  KEY_Z,  KEY_X,  KEY_C,           KEY_V,            KEY_Y,
+    /*NOOP*/0, 0,      0,      MODIFIERKEY_CTRL, MODIFIERKEY_ALT, KEY_PAGE_UP,            KEY_PRINTSCREEN,
+                       0,      KEY_BACKSPACE,                     KEY_ENTER,   KEY_SPACE, KEY_TAB,
 // RIGHT
-// |                |  |                  |      |      |      |      |
-                       0,                 KEY_7, KEY_8, KEY_9, KEY_0, 0,
-                       0,                 KEY_4, KEY_5, KEY_6, 0,     0,
-   MODIFIERKEY_GUI,    0,                 KEY_1, KEY_2, KEY_3, 0,     0,
-   0,               0, MODIFIERKEY_SHIFT,        KEY_0, 0
+// |  |  |  |  |  |  |  |
+                               KEY_F7,        KEY_F8,   KEY_F9, KEY_F10,   KEY_F11,   KEY_F12,
+                               KEY_LEFT,      KEY_DOWN, KEY_UP, KEY_RIGHT, /*NOOP*/0, KEY_END,
+   MODIFIERKEY_GUI,            KEY_PAGE_DOWN, 0,        0,      0,         0,         0,
+   KEY_BACKSPACE,   KEY_ENTER, KEY_DELETE,              0,      0
 };
 
 void setup()
