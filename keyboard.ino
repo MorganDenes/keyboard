@@ -286,8 +286,8 @@ int LayerTwo[keyCount] {
 //  |          |              |      |               |                |              |           |
     0,         KEY_B,         KEY_1, KEY_9,          KEY_0,           0,
     KEY_TILDE, KEY_4,         KEY_5, KEY_LEFT_BRACE, KEY_RIGHT_BRACE, KEY_SEMICOLON,
-    0,         KEY_BACKSLASH, KEY_X, KEY_7,          KEY_6,           KEY_COMMA,                0,
-                             0,     KEY_F,                            0,             KEY_SPACE, KEY_TAB,
+    0,         KEY_BACKSLASH, KEY_X, KEY_7,          KEY_6,           KEY_COMMA,                 0,
+                              0,     KEY_F,                            0,             KEY_SPACE, KEY_TAB,
 // RIGHT
 // |              |          |             |      |      |      |               |
                              KEY_EQUAL,    KEY_7, KEY_8, KEY_9, KEYPAD_MINUS,   0,
@@ -328,10 +328,10 @@ int LayerFour[keyCount] {
     /*NOOP*/0, 0,      0,      MODIFIERKEY_CTRL, MODIFIERKEY_ALT, KEY_PAGE_UP,            KEY_PRINTSCREEN,
                        0,      KEY_BACKSPACE,                     KEY_ENTER,   KEY_SPACE, KEY_TAB,
 // RIGHT
-// |  |  |  |  |  |  |  |
-                               KEY_F7,        KEY_F8,   KEY_F9, KEY_F10,   KEY_F11,   KEY_F12,
-                               KEY_LEFT,      KEY_DOWN, KEY_UP, KEY_RIGHT, /*NOOP*/0, KEY_END,
-   MODIFIERKEY_GUI,            KEY_PAGE_DOWN, 0,        0,      0,         0,         0,
+// |                |          |              |         |       |          |        |
+                               KEY_F7,        KEY_F8,   KEY_F9, KEY_F10,   KEY_F11, KEY_F12,
+                               KEY_LEFT,      KEY_DOWN, KEY_UP, KEY_RIGHT, 0,       KEY_END,
+   MODIFIERKEY_GUI,            KEY_PAGE_DOWN, 0,        0,      0,         0,       0,
    KEY_BACKSPACE,   KEY_ENTER, KEY_DELETE,              0,      0
 };
 
